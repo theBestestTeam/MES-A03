@@ -1,0 +1,59 @@
+/*
+* Programmer          : Paul Smith & Amy Dayasundara
+* Course code         : SENG2010
+* Date of Submission  : 2019-10-30
+* Description         : This file contains the C code for the psadA3
+*                       function
+*/
+
+#include <stdio.h>
+#include <stdint.h>
+#include <ctype.h>
+#include "stm32f3xx_hal.h"
+#include "stm32f3_discovery.h"
+#include "stm32f3_discovery_accelerometer.h"
+#include "stm32f3_discovery_gyroscope.h"
+#include "common.h"
+
+//global variable for game
+extern volatile uint32_t gameCount;
+
+int psadGame(int timer, char *range, char *target);
+
+void psadA3(int action)
+{
+  if(action==CMD_SHORT_HELP) return;
+  if(action==CMD_LONG_HELP) {
+    printf("Game Test\n\n"
+   "This command tests new game function\n"
+   );
+    return;
+    }
+
+    //first parameter of game function is gathered (timer value)
+    uint32_t timer;
+    int fetch_status;
+    fetch_status = fetch_uint32_arg(&timer);
+    if(fetch_status) {
+      timer = 500000;
+    }
+
+    //second parameter of game function is gathered (range of game numbers)
+    char *dest;
+    fetch_status = fetch_string_arg(&dest);
+    if(fetch_status) {
+      dest = "01234567";
+    }
+
+    //third parameter of game function is gathered (target value)
+    char *target;
+    fetch_status = fetch_string_arg(&target);
+    if(fetch_status) {
+      target = "0";
+    }
+
+    //game function is called with necessary parameters
+    psadGame(timer, dest, target);
+}
+
+ADD_CMD("psadGame", psadA3,"Test the new game function")

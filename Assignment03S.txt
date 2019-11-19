@@ -1,0 +1,128 @@
+@  Programmer          : Paul Smith & Amy Dayasundara
+@  Course code         : SENG2010
+@  Date of Submission  : 2019-10-30
+@  Description         : This file contains the assembly code for the psadGame
+@                        function
+
+
+    .code   16              @ This directive selects the instruction set being generated.
+                            @ The value 16 selects Thumb, with the value 32 selecting ARM.
+
+    .text                   @ Tell the assembler that the upcoming section is to be considered
+                            @ assembly language instructions - Code section (text -> ROM)
+
+
+  @ Function Declaration : int psadGame (int timer, char *range, char *target)
+  @ Description:
+  @
+  @ Input:                 r0, r1, r2 (r0 holds timer, r1 holds range, r2 holds target)
+  @ Returns:               none
+
+  @@ Function Header Block
+      .align  2               @ Code alignment - 2^n alignment (n=2)
+                              @ This causes the assembler to use 4 byte alignment
+
+      .syntax unified         @ Sets the instruction set to the new unified ARM + THUMB
+                              @ instructions. The default is divided (separate instruction sets)
+
+      .global psadGame       @ Make the symbol name for the function visible to the linker
+
+      .code   16              @ 16bit THUMB code (BOTH .code and .thumb_func are required)
+      .thumb_func             @ Specifies that the following symbol is the name of a THUMB
+                              @ encoded function. Necessary for interlinking between ARM and THUMB code.
+
+  psadGame:
+
+    push {lr}                 @ lr value pushed to stack to account for function call
+    mov r4, r0                @ timer value is stored in register
+    mov r5, r1                @ range value stored in registers
+    mov r6, r1
+    mov r7, r2                @ target value stored in registers
+    mov r11, #4               @ value for win condition set to appropriate register
+
+    ldrb r8, [r6]             @ registers set just before loop begins
+    subs r8, r8, #48          @ first light value reduced from ASSCII character to true value
+
+    string_loop:              @ loops through string till end
+    mov r0, r8                @ begins cycling through LED lights
+    bl BSP_LED_Toggle         @ function for LED toggling is called
+    mov r9, r4                @ timer value stored in r9
+
+    d_loop:                   @ beginning of delay loop
+    mov r0, #0                @ value loaded for button state function
+    bl BSP_PB_GetState        @ button state is retrieved
+    cmp r0, #0                @ button state compared against 0
+    beq no_push               @ if value equal to 0, button wasn't pressed
+    ldrb r1, [r7]             @ target value stored in register for comparison
+    subs r1, r1, #48          @ value reduced to proper number
+    cmp r8, r1                @ compares current light value against target value
+    beq winner                @ if values are equal, sent to win loop
+    b loser                   @ if values are not equal, sent to loss loop
+
+    no_push:                  @ button wasn't pressed, game continues looping
+    subs r9, r9, #1           @ timer value decremented
+    bgt d_loop                @ if timer value above 0, returns to loop start
+
+    mov r0, r8                @ light value sent to register for passing
+    bl BSP_LED_Toggle         @ after delay, LED is toggled off
+    add  r6, #1               @ string is incremented
+    ldrb r8, [r6]             @ next byte is loaded into appropriate register
+    subs r8, r8, #48          @ value deducted to match actual entered number
+    cmp r8, #-1               @ if current string value is above -1, then at the end of string
+    bgt string_loop           @ returns to beginning of string loop
+
+    mov r6, r5                @ register containing beginning of string address reset
+    ldrb r8, [r6]             @ proper register has value reloaded
+    subs r8, r8, #48          @ value set to correct number for next loop
+    b string_loop             @ returns to beginning of loop
+
+
+    winner:                   @ loop for light blinking 'win' effect
+    mov r0, r8
+    bl BSP_LED_Toggle         @ last light to be on turned off
+
+    winner_loop:              @ actual working loop for win condition established
+    mov r10, #8               @ register given max number of lights to count down from
+
+    light_loop:               @ loop for turning on all lights on board
+    subs r10, r10, #1         @ max light number decremented
+    mov r0, r10               @ number moved to r0 for passing
+    bl BSP_LED_Toggle         @ light toggled on
+    cmp r10, #0               @ checks to see if light number above 0
+    bgt light_loop            @ returns to loop start to finish all
+    ldr r9, =0xFFFFFF         @ if light value zero, timer value loaded for blink
+
+    light_timer:              @ delay loop for light timer
+    subs r9, r9, #1           @ timer value decremented
+    bgt light_timer           @ return to beginning of light timer
+    subs r11, r11, #1         @ checks loop number for light display
+    bgt winner_loop           @ if loop number above 0, return to beginning of win loop
+    b exit                    @ win loop ends and jumps to exit
+
+
+    loser:                    @ loop for game loss light effect
+    mov r0, r8
+    bl BSP_LED_Toggle         @ last light to be on turned off
+
+    ldrb r0, [r7]             @ target value stored in register for passing
+    subs r0, r0, #48          @ value reduced from ASCII character to proper value
+    bl BSP_LED_Toggle         @ target light turned on
+    ldr r9, =0xFFFFFF         @ timer value loaded for delay
+
+    lose_timer:               @ delay loop for light timer
+    subs r9, r9, #1           @ timer value decremented
+    bgt lose_timer            @ return to beginning of lose timer
+
+    ldrb r0, [r7]             @ target value stored in register to turn off
+    subs r0, r0, #48          @ value reduced from ASCII character to proper value
+    bl BSP_LED_Toggle         @ target light shut off
+    b exit                    @ lose loop ends and jumps to exit (not necessary
+                              @ but it seems like good practice to include)
+
+    exit:                     @ exits to end of function
+    pop {lr}                  @ link register restored to value from start of function
+    bx lr                     @ Return (Branch eXchange) to the address in the link register (lr)
+
+
+    @to get back after null terminator, make sure the lr contents are stored in a register
+    .end
